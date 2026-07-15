@@ -50,6 +50,10 @@ export function GetVerificationStats() {
   return window['go']['main']['App']['GetVerificationStats']();
 }
 
+export function DiagnoseProxy() {
+  return window['go']['main']['App']['DiagnoseProxy']();
+}
+
 export function OpenCACert() {
   return window['go']['main']['App']['OpenCACert']();
 }

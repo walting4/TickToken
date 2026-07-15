@@ -58,6 +58,16 @@ const translations = {
     yes: '是',
     no: '否',
 
+    // Diagnostics
+    diagnose: '诊断',
+    diagnosing: '正在诊断...',
+    hint: '提示',
+    diag_proxy_listening: '代理监听',
+    diag_system_proxy: '系统代理',
+    diag_ca_cert: 'CA 证书',
+    diag_trae_proxy: 'trae 代理配置',
+    diag_proxy_request_test: '代理请求测试',
+
     // Time series
     timeSeries: '时间序列',
     timeRange: '时间范围',
@@ -166,6 +176,16 @@ const translations = {
     notListening: 'Not Listening',
     yes: 'Yes',
     no: 'No',
+
+    // Diagnostics
+    diagnose: 'Diagnose',
+    diagnosing: 'Diagnosing...',
+    hint: 'Hint',
+    diag_proxy_listening: 'Proxy Listening',
+    diag_system_proxy: 'System Proxy',
+    diag_ca_cert: 'CA Certificate',
+    diag_trae_proxy: 'Trae Proxy Config',
+    diag_proxy_request_test: 'Proxy Request Test',
 
     // Time series
     timeSeries: 'Time Series',

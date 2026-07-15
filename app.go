@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
+	"net/url"
 	"os/exec"
 	"runtime"
 	"time"
@@ -581,4 +583,132 @@ func (a *App) SetLanguage(lang string) (LanguageInfo, error) {
 	}
 	log.Printf("[App] 语言已切换为: %s", lang)
 	return a.GetLanguage(), nil
+}
+
+// DiagnosticsResult 代理诊断结果
+type DiagnosticsResult struct {
+	Success   bool              `json:"success"`
+	Message   string            `json:"message"`
+	Checks    []DiagnosticCheck `json:"checks"`
+	Timestamp string            `json:"timestamp"`
+}
+
+// DiagnosticCheck 单项诊断检查
+type DiagnosticCheck struct {
+	Name    string `json:"name"`
+	Passed  bool   `json:"passed"`
+	Detail  string `json:"detail"`
+	Hint    string `json:"hint"`
+}
+
+// DiagnoseProxy 运行代理诊断，帮助用户排查 trae 检测不到的问题
+func (a *App) DiagnoseProxy() DiagnosticsResult {
+	result := DiagnosticsResult{
+		Checks:    []DiagnosticCheck{},
+		Timestamp: time.Now().Format(time.RFC3339),
+	}
+
+	// 检查 1: 代理是否在监听
+	check1 := DiagnosticCheck{Name: "proxy_listening", Passed: false}
+	if a.mitmProxy != nil {
+		// 尝试连接代理端口验证是否真的在监听
+		if a.cfg != nil {
+			conn, err := net.DialTimeout("tcp", a.cfg.ProxyAddr, 2*time.Second)
+			if err == nil {
+				conn.Close()
+				check1.Passed = true
+				check1.Detail = fmt.Sprintf("代理正在监听 %s", a.cfg.ProxyAddr)
+			} else {
+				check1.Detail = fmt.Sprintf("代理端口 %s 连接失败: %v", a.cfg.ProxyAddr, err)
+				check1.Hint = "代理启动失败，请检查端口是否被占用或重启应用"
+			}
+		}
+	} else {
+		check1.Detail = "代理未初始化（降级模式）"
+		check1.Hint = "CA 证书管理器初始化失败导致代理未启动，请检查数据目录权限"
+	}
+	result.Checks = append(result.Checks, check1)
+
+	// 检查 2: 系统代理是否配置
+	check2 := DiagnosticCheck{Name: "system_proxy", Passed: false}
+	if a.cfg != nil {
+		if checkSystemProxy(a.cfg.ProxyAddr) {
+			check2.Passed = true
+			check2.Detail = "系统代理已指向 TickToken"
+		} else {
+			check2.Detail = "系统代理未配置或未指向 TickToken"
+			check2.Hint = "点击「一键配置」按钮设置系统代理"
+		}
+	}
+	result.Checks = append(result.Checks, check2)
+
+	// 检查 3: CA 证书是否安装
+	check3 := DiagnosticCheck{Name: "ca_cert", Passed: false}
+	if a.certMgr != nil {
+		if checkCACertInstalled(a.certMgr.GetCACertPath()) {
+			check3.Passed = true
+			check3.Detail = "CA 证书已安装到系统信任库"
+		} else {
+			check3.Detail = "CA 证书未安装"
+			check3.Hint = "点击「一键配置」按钮安装 CA 证书（需要管理员权限）"
+		}
+	}
+	result.Checks = append(result.Checks, check3)
+
+	// 检查 4: trae 代理配置
+	check4 := DiagnosticCheck{Name: "trae_proxy", Passed: false}
+	traePath, traeConfigured := checkTraeProxyConfig()
+	if traeConfigured {
+		check4.Passed = true
+		check4.Detail = fmt.Sprintf("trae 代理已配置: %s", traePath)
+	} else if traePath != "" {
+		check4.Detail = fmt.Sprintf("trae 配置文件存在但未配置代理: %s", traePath)
+		check4.Hint = "点击「一键配置」按钮自动配置 trae 代理，或手动在 trae 设置中添加 http.proxy"
+	} else {
+		check4.Detail = "未找到 trae 配置目录"
+		check4.Hint = "请确认 trae 已安装，或手动在 trae 设置中配置 http.proxy 为 http://127.0.0.1:8899"
+	}
+	result.Checks = append(result.Checks, check4)
+
+	// 检查 5: 通过代理发送测试请求
+	check5 := DiagnosticCheck{Name: "proxy_request_test", Passed: false}
+	if check1.Passed && a.cfg != nil {
+		proxyURL, _ := url.Parse("http://" + a.cfg.ProxyAddr)
+		testClient := &http.Client{
+			Transport: &http.Transport{
+				Proxy: http.ProxyURL(proxyURL),
+			},
+			Timeout: 10 * time.Second,
+		}
+		// 向一个公共 API 发送测试请求
+		resp, err := testClient.Get("http://httpbin.org/get")
+		if err == nil {
+			resp.Body.Close()
+			check5.Passed = true
+			check5.Detail = "通过代理发送测试请求成功"
+		} else {
+			check5.Detail = fmt.Sprintf("通过代理发送测试请求失败: %v", err)
+			check5.Hint = "代理转发可能有问题，请检查网络连接"
+		}
+	} else {
+		check5.Detail = "代理未运行，跳过请求测试"
+		check5.Hint = "请先确保代理正在监听"
+	}
+	result.Checks = append(result.Checks, check5)
+
+	// 汇总结果
+	passedCount := 0
+	for _, c := range result.Checks {
+		if c.Passed {
+			passedCount++
+		}
+	}
+	result.Success = passedCount == len(result.Checks)
+	if result.Success {
+		result.Message = fmt.Sprintf("全部 %d 项检查通过", passedCount)
+	} else {
+		result.Message = fmt.Sprintf("%d/%d 项检查通过，请查看未通过项的提示", passedCount, len(result.Checks))
+	}
+
+	return result
 }

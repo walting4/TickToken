@@ -27,6 +27,8 @@ export function GetTrend(arg1:number,arg2:string):Promise<Array<storage.TrendPoi
 
 export function GetVerificationStats():Promise<main.VerificationStats>;
 
+export function DiagnoseProxy():Promise<main.DiagnosticsResult>;
+
 export function OpenCACert():Promise<void>;
 
 export function OpenDataDir():Promise<void>;

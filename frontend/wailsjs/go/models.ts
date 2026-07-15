@@ -141,23 +141,59 @@ export namespace main {
 	    }
 	}
 	export class SetupResult {
-	    success: boolean;
-	    message: string;
-	    steps: string[];
-	    warnings: string[];
+    success: boolean;
+    message: string;
+    steps: string[];
+    warnings: string[];
 
-	    static createFrom(source: any = {}) {
-	        return new SetupResult(source);
-	    }
+    static createFrom(source: any = {}) {
+        return new SetupResult(source);
+    }
 
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.success = source["success"];
-	        this.message = source["message"];
-	        this.steps = source["steps"];
-	        this.warnings = source["warnings"];
-	    }
-	}
+    constructor(source: any = {}) {
+        if ('string' === typeof source) source = JSON.parse(source);
+        this.success = source["success"];
+        this.message = source["message"];
+        this.steps = source["steps"];
+        this.warnings = source["warnings"];
+    }
+}
+export class DiagnosticCheck {
+    name: string;
+    passed: boolean;
+    detail: string;
+    hint: string;
+
+    static createFrom(source: any = {}) {
+        return new DiagnosticCheck(source);
+    }
+
+    constructor(source: any = {}) {
+        if ('string' === typeof source) source = JSON.parse(source);
+        this.name = source["name"];
+        this.passed = source["passed"];
+        this.detail = source["detail"];
+        this.hint = source["hint"];
+    }
+}
+export class DiagnosticsResult {
+    success: boolean;
+    message: string;
+    checks: DiagnosticCheck[];
+    timestamp: string;
+
+    static createFrom(source: any = {}) {
+        return new DiagnosticsResult(source);
+    }
+
+    constructor(source: any = {}) {
+        if ('string' === typeof source) source = JSON.parse(source);
+        this.success = source["success"];
+        this.message = source["message"];
+        this.checks = source["checks"];
+        this.timestamp = source["timestamp"];
+    }
+}
 
 }
 

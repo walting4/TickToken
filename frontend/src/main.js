@@ -395,4 +395,43 @@ async function removeProxyAndCert() {
   }
 }
 
+// ============ 代理诊断 ============
+async function diagnoseProxy() {
+  const reportEl = document.getElementById('diagnosticReport');
+  reportEl.innerHTML = '<div class="diag-running">' + window.i18n.t('diagnosing') + '</div>';
+  try {
+    const result = await window.go.main.App.DiagnoseProxy();
+    renderDiagnosticReport(result);
+  } catch (e) {
+    console.error('DiagnoseProxy failed:', e);
+    reportEl.innerHTML = '<div class="diag-item fail">' + String(e) + '</div>';
+  }
+}
+
+function renderDiagnosticReport(result) {
+  const reportEl = document.getElementById('diagnosticReport');
+  if (!result || !result.checks) {
+    reportEl.innerHTML = '';
+    return;
+  }
+
+  let html = '<div class="diag-summary ' + (result.success ? 'pass' : 'fail') + '">' +
+    '<strong>' + (result.success ? '✓' : '⚠') + '</strong> ' + (result.message || '') +
+    '</div>';
+
+  result.checks.forEach(check => {
+    const status = check.passed ? 'pass' : 'fail';
+    const icon = check.passed ? '✓' : '✗';
+    html += '<div class="diag-item ' + status + '">' +
+      '<span class="diag-icon">' + icon + '</span>' +
+      '<div class="diag-content">' +
+      '<div class="diag-name">' + window.i18n.t('diag_' + check.name) + '</div>' +
+      '<div class="diag-detail">' + (check.detail || '') + '</div>' +
+      (check.hint ? '<div class="diag-hint">' + window.i18n.t('hint') + ': ' + check.hint + '</div>' : '') +
+      '</div></div>';
+  });
+
+  reportEl.innerHTML = html;
+}
+
 document.getElementById('timeRange').addEventListener('change', refreshAll);
