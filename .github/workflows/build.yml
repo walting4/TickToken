@@ -22,7 +22,7 @@ jobs:
             artifact_name: ticktoken-macos
           - os: windows-latest
             platform: windows/amd64
-            package_cmd: wails build -platform windows/amd64 -nsis
+            package_cmd: wails build -platform windows/amd64 -nsis -webview2 embed
             artifact_name: ticktoken-windows-amd64
 
     runs-on: ${{ matrix.os }}
@@ -59,8 +59,44 @@ jobs:
           echo "SDKROOT=$(xcrun --show-sdk-path)" >> $GITHUB_ENV
           echo "/usr/sbin" >> $GITHUB_PATH
 
+      - name: Install NSIS (Windows)
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: |
+          # 检查 NSIS 是否已预装
+          $nsisPath = Get-Command makensis -ErrorAction SilentlyContinue
+          if (-not $nsisPath) {
+            # 检查默认安装路径
+            $defaultPath = "C:\Program Files (x86)\NSIS\makensis.exe"
+            if (Test-Path $defaultPath) {
+              Write-Host "NSIS found at default path"
+              echo "C:\Program Files (x86)\NSIS" >> $env:GITHUB_PATH
+            } else {
+              Write-Host "NSIS not found, installing via choco..."
+              choco install nsis -y --no-progress
+              echo "C:\Program Files (x86)\NSIS" >> $env:GITHUB_PATH
+            }
+          } else {
+            Write-Host "NSIS already in PATH: $($nsisPath.Source)"
+          }
+          # 验证安装
+          $env:PATH = "C:\Program Files (x86)\NSIS;" + $env:PATH
+          & makensis /VERSION 2>$null
+          if ($LASTEXITCODE -ne 0) { Write-Host "WARNING: makensis verification failed" }
+
       - name: Build
         run: ${{ matrix.package_cmd }}
+
+      - name: List build output (debug)
+        if: always()
+        shell: powershell
+        run: |
+          Write-Host "=== Build output directory ==="
+          if (Test-Path build/bin) {
+            Get-ChildItem build/bin -Force | Format-Table Name, Length, LastWriteTime
+          } else {
+            Write-Host "build/bin not found"
+          }
 
       - name: Package macOS app
         if: runner.os == 'macOS'
@@ -75,6 +111,25 @@ jobs:
           cd build/bin
           tar czf TickToken-linux-amd64.tar.gz TickToken
           rm TickToken
+
+      - name: Package Windows (zip portable + keep installer)
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: |
+          Set-Location build/bin
+          Write-Host "Files in build/bin:"
+          Get-ChildItem -Force | Format-Table Name, Length
+          # 创建 zip 便携版（包含 exe）
+          if (Test-Path TickToken.exe) {
+            Compress-Archive -Path TickToken.exe -DestinationPath TickToken-windows-amd64-portable.zip -Force
+            Write-Host "Created portable zip"
+          }
+          # NSIS 安装包应已生成（TickToken-amd64-installer.exe），保留不动
+          if (Test-Path "TickToken-amd64-installer.exe") {
+            Write-Host "NSIS installer found!"
+          } else {
+            Write-Host "WARNING: NSIS installer NOT found - only portable exe available"
+          }
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -109,14 +164,23 @@ jobs:
             被动式 Token 计数器 - 基于 MITM 代理的 Token 用量追踪工具。
 
             ### 下载安装
+
+            - **Windows**: 
+              - 推荐下载 `TickToken-amd64-installer.exe`（NSIS 安装包，自动处理依赖）
+              - 或下载 `TickToken-windows-amd64-portable.zip`（便携版，解压即用）
+              - 已内嵌 WebView2 Runtime bootstrapper，首次运行会自动安装
             - **Linux**: 下载 `TickToken-linux-amd64.tar.gz`，解压后运行 `./TickToken`
             - **macOS**: 下载 `TickToken-macOS-universal.zip`，解压后拖入 Applications
-            - **Windows**: 下载 `TickToken-amd64-installer.exe`，双击安装
 
             ### 系统要求
+            - Windows: Windows 10+（已内嵌 WebView2 bootstrapper）
             - Linux: libwebkit2gtk-4.1, libgtk-3
             - macOS: macOS 11+
-            - Windows: Windows 10+
+
+            ### Windows 打不开的排查
+            1. 优先使用 NSIS 安装包 `TickToken-amd64-installer.exe`，而非裸 exe
+            2. 如 SmartScreen 阻止：点击"更多信息" → "仍要运行"
+            3. 如仍无法启动：安装 [WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/)
           files: |
             artifacts/ticktoken-linux-amd64/*
             artifacts/ticktoken-macos/*
