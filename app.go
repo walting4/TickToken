@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net/http"
 	"os/exec"
@@ -68,6 +69,11 @@ func (a *App) Startup(ctx context.Context) {
 	// 初始化计数引擎和指纹库
 	a.counter = counter.NewCounter()
 	a.fpDB = adapters.NewFingerprintDB()
+
+	// v2: 初始化用户设置（语言等）
+	if err := config.InitSettings(cfg.DataDir); err != nil {
+		log.Printf("[App] 设置初始化失败（非致命，使用默认值）: %v", err)
+	}
 
 	// v2: 初始化 API Key 监控器
 	a.apiKeyMonitor = apikey.NewMonitor()
@@ -481,4 +487,32 @@ func (a *App) OpenCACert() {
 // OpenDataDir 在文件管理器中打开数据目录
 func (a *App) OpenDataDir() {
 	a.OpenInFileManager(a.cfg.DataDir)
+}
+
+// LanguageInfo 语言信息（暴露给前端）
+type LanguageInfo struct {
+	Current    string   `json:"current"`    // 当前语言代码 "zh" / "en"
+	Available  []string `json:"available"`  // 支持的语言列表
+}
+
+// GetLanguage 获取当前语言设置
+func (a *App) GetLanguage() LanguageInfo {
+	s := config.GetSettings()
+	return LanguageInfo{
+		Current:   s.Language,
+		Available: config.SupportedLanguages,
+	}
+}
+
+// SetLanguage 设置语言并持久化
+// 返回更新后的语言信息
+func (a *App) SetLanguage(lang string) (LanguageInfo, error) {
+	if !config.IsValidLanguage(lang) {
+		return LanguageInfo{}, fmt.Errorf("不支持的语言代码: %s", lang)
+	}
+	if err := config.UpdateSettings(config.Settings{Language: lang}); err != nil {
+		return LanguageInfo{}, fmt.Errorf("保存语言设置失败: %w", err)
+	}
+	log.Printf("[App] 语言已切换为: %s", lang)
+	return a.GetLanguage(), nil
 }

@@ -40,6 +40,7 @@ body {
   transition: border-color 0.2s;
 }
 .header-btn:hover { border-color: #58a6ff; color: #58a6ff; }
+select.header-btn { padding: 4px 8px; }
 
 /* Container */
 .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
@@ -63,6 +64,39 @@ body {
 .card .value.green { color: #3fb950; }
 .card .value.yellow { color: #d29922; }
 .card .value.purple { color: #bc8cff; }
+.card .value.red { color: #f85149; }
+
+/* Dual row (两栏并排) */
+.dual-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+@media (max-width: 900px) {
+  .dual-row { grid-template-columns: 1fr; }
+  .summary { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* Mini cards (校验统计 / API Key 监控 内部小卡片) */
+.mini-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 10px;
+}
+.mini-card {
+  background: #0f1117;
+  border: 1px solid #21262d;
+  border-radius: 6px;
+  padding: 10px 12px;
+}
+.mini-label { font-size: 10px; color: #8b949e; text-transform: uppercase; margin-bottom: 4px; letter-spacing: 0.3px; }
+.mini-value { font-size: 18px; font-weight: 600; color: #e1e4e8; }
+.mini-value.blue { color: #58a6ff; }
+.mini-value.green { color: #3fb950; }
+.mini-value.yellow { color: #d29922; }
+.mini-value.red { color: #f85149; }
+.mini-value.purple { color: #bc8cff; }
 
 /* Sections */
 .section {
@@ -94,16 +128,17 @@ body {
 }
 .controls select:hover, .ctrl-btn:hover { border-color: #58a6ff; }
 .ctrl-btn.active { border-color: #58a6ff; color: #58a6ff; }
+.ctrl-label { font-size: 12px; color: #8b949e; }
 
 /* Charts */
 .chart-container { width: 100%; overflow-x: auto; }
-#timelineChart, #aggregateChart { width: 100%; height: 280px; }
+#timelineChart, #aggregateChart, #trendChart { width: 100%; height: 280px; }
 
 /* Live events */
-.live-events { max-height: 300px; overflow-y: auto; }
+.live-events { max-height: 320px; overflow-y: auto; }
 .event-row {
   display: grid;
-  grid-template-columns: 140px 100px 140px 70px 70px 90px;
+  grid-template-columns: 80px 90px 1fr 90px 70px 90px;
   gap: 10px;
   padding: 7px 0;
   border-bottom: 1px solid #21262d;
@@ -114,6 +149,13 @@ body {
 .event-row .tool { color: #58a6ff; }
 .event-row .model { color: #bc8cff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .event-row .src { color: #8b949e; font-size: 11px; }
+.event-row.has-anomaly { background: rgba(248, 81, 73, 0.08); border-left: 2px solid #f85149; padding-left: 6px; }
+
+/* Anomaly row */
+.anomaly-row .anomaly-type { color: #f85149; font-weight: 600; }
+.anomaly-row .deviation { color: #d29922; }
+.anomaly-row .provider { color: #8b949e; font-size: 11px; }
+
 .empty { text-align: center; color: #8b949e; padding: 30px; }
 
 /* Scrollbar */

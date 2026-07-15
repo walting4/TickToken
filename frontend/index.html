@@ -15,62 +15,158 @@
   </div>
   <div class="header-right">
     <span class="proxy-info" id="proxyInfo">-</span>
-    <button class="header-btn" onclick="openCACert()">CA 证书</button>
-    <button class="header-btn" onclick="openDataDir()">数据目录</button>
+    <select id="langSelect" class="header-btn" onchange="onLanguageChange()" title="Language / 语言">
+      <option value="zh">中文</option>
+      <option value="en">English</option>
+    </select>
+    <button class="header-btn" onclick="openCACert()" data-i18n="caCert">CA 证书</button>
+    <button class="header-btn" onclick="openDataDir()" data-i18n="dataDir">数据目录</button>
   </div>
 </div>
 
 <div class="container">
+  <!-- 汇总卡片 -->
   <div class="summary">
     <div class="card">
-      <div class="label">Prompt Tokens</div>
+      <div class="label" data-i18n="promptTokens">Prompt Tokens</div>
       <div class="value blue" id="totalPrompt">0</div>
     </div>
     <div class="card">
-      <div class="label">Completion Tokens</div>
+      <div class="label" data-i18n="completionTokens">Completion Tokens</div>
       <div class="value green" id="totalCompletion">0</div>
     </div>
     <div class="card">
-      <div class="label">Cache Hit</div>
+      <div class="label" data-i18n="cacheHit">Cache Hit</div>
       <div class="value yellow" id="totalCacheHit">0</div>
     </div>
     <div class="card">
-      <div class="label">Total Events</div>
+      <div class="label" data-i18n="totalEvents">Total Events</div>
       <div class="value purple" id="totalEvents">0</div>
     </div>
   </div>
 
+  <!-- 校验统计 + API Key 监控 并排 -->
+  <div class="dual-row">
+    <div class="section">
+      <h2 data-i18n="verificationStats">校验统计</h2>
+      <div class="mini-cards">
+        <div class="mini-card">
+          <div class="mini-label" data-i18n="totalVerified">总校验数</div>
+          <div class="mini-value" id="vsTotal">0</div>
+        </div>
+        <div class="mini-card">
+          <div class="mini-label" data-i18n="accuracyRate">准确率</div>
+          <div class="mini-value green" id="vsAccuracy">0%</div>
+        </div>
+        <div class="mini-card">
+          <div class="mini-label" data-i18n="avgDeviation">平均偏差</div>
+          <div class="mini-value yellow" id="vsDeviation">0%</div>
+        </div>
+        <div class="mini-card">
+          <div class="mini-label" data-i18n="anomalies">异常数</div>
+          <div class="mini-value red" id="vsAnomalies">0</div>
+        </div>
+        <div class="mini-card">
+          <div class="mini-label" data-i18n="withResponseUsage">响应 usage</div>
+          <div class="mini-value blue" id="vsWithUsage">0</div>
+        </div>
+        <div class="mini-card">
+          <div class="mini-label" data-i18n="withLocalOnly">仅本地估算</div>
+          <div class="mini-value" id="vsLocalOnly">0</div>
+        </div>
+        <div class="mini-card">
+          <div class="mini-label" data-i18n="avgLatency">平均延迟</div>
+          <div class="mini-value" id="vsAvgLatency">0 ms</div>
+        </div>
+        <div class="mini-card">
+          <div class="mini-label" data-i18n="maxLatency">最大延迟</div>
+          <div class="mini-value" id="vsMaxLatency">0 ms</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2 data-i18n="apikeyMonitor">API Key 监控</h2>
+      <div class="mini-cards">
+        <div class="mini-card">
+          <div class="mini-label" data-i18n="totalRequests">请求总数</div>
+          <div class="mini-value blue" id="amTotal">0</div>
+        </div>
+        <div class="mini-card">
+          <div class="mini-label" data-i18n="completedRequests">已完成</div>
+          <div class="mini-value green" id="amCompleted">0</div>
+        </div>
+        <div class="mini-card">
+          <div class="mini-label" data-i18n="failedRequests">失败数</div>
+          <div class="mini-value red" id="amFailed">0</div>
+        </div>
+        <div class="mini-card">
+          <div class="mini-label" data-i18n="anomalyRequests">异常数</div>
+          <div class="mini-value yellow" id="amAnomaly">0</div>
+        </div>
+        <div class="mini-card">
+          <div class="mini-label" data-i18n="inflightCount">进行中</div>
+          <div class="mini-value purple" id="amInflight">0</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 时间序列 -->
   <div class="section">
-    <h2>时间序列</h2>
+    <h2 data-i18n="timeSeries">时间序列</h2>
     <div class="controls">
       <select id="timeRange">
-        <option value="1">1 hour</option>
-        <option value="6">6 hours</option>
-        <option value="24" selected>24 hours</option>
-        <option value="168">7 days</option>
+        <option value="1" data-i18n="hour1">1 hour</option>
+        <option value="6" data-i18n="hour6">6 hours</option>
+        <option value="24" selected data-i18n="hour24">24 hours</option>
+        <option value="168" data-i18n="day7">7 days</option>
       </select>
-      <button class="ctrl-btn" onclick="refreshAll()">Refresh</button>
+      <button class="ctrl-btn" onclick="refreshAll()" data-i18n="refresh">Refresh</button>
     </div>
     <div class="chart-container"><canvas id="timelineChart"></canvas></div>
   </div>
 
+  <!-- 趋势分析 -->
   <div class="section">
-    <h2>分类聚合</h2>
+    <h2 data-i18n="trendAnalysis">趋势分析</h2>
     <div class="controls">
-      <button class="ctrl-btn active" id="btn-model" onclick="setDimension('model')">By Model</button>
-      <button class="ctrl-btn" id="btn-tool" onclick="setDimension('tool')">By Tool</button>
+      <span class="ctrl-label" data-i18n="granularity">粒度</span>
+      <button class="ctrl-btn active" id="btn-hour" onclick="setGranularity('hour')" data-i18n="hourly">按小时</button>
+      <button class="ctrl-btn" id="btn-day" onclick="setGranularity('day')" data-i18n="daily">按天</button>
+    </div>
+    <div class="chart-container"><canvas id="trendChart"></canvas></div>
+  </div>
+
+  <!-- 分类聚合 -->
+  <div class="section">
+    <h2 data-i18n="aggregate">分类聚合</h2>
+    <div class="controls">
+      <button class="ctrl-btn active" id="btn-model" onclick="setDimension('model')" data-i18n="byModel">By Model</button>
+      <button class="ctrl-btn" id="btn-tool" onclick="setDimension('tool')" data-i18n="byTool">By Tool</button>
     </div>
     <div class="chart-container"><canvas id="aggregateChart"></canvas></div>
   </div>
 
-  <div class="section">
-    <h2>实时事件</h2>
-    <div class="live-events" id="liveEvents">
-      <div class="empty">等待事件...</div>
+  <!-- 异常事件 + 实时事件 并排 -->
+  <div class="dual-row">
+    <div class="section">
+      <h2 data-i18n="anomalyEvents">异常事件</h2>
+      <div class="live-events" id="anomalyList">
+        <div class="empty" data-i18n="noAnomalies">暂无异常事件</div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2 data-i18n="liveEvents">实时事件</h2>
+      <div class="live-events" id="liveEvents">
+        <div class="empty" data-i18n="waitingEvents">等待事件...</div>
+      </div>
     </div>
   </div>
 </div>
 
+<script src="/src/i18n.js"></script>
 <script src="/src/main.js"></script>
 </body>
 </html>

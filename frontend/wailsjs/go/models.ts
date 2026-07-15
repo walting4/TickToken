@@ -1,5 +1,39 @@
 export namespace main {
 	
+	export class APIKeyMonitorStats {
+	    totalRequests: number;
+	    completedRequests: number;
+	    failedRequests: number;
+	    anomalyRequests: number;
+	    inflightCount: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new APIKeyMonitorStats(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.totalRequests = source["totalRequests"];
+	        this.completedRequests = source["completedRequests"];
+	        this.failedRequests = source["failedRequests"];
+	        this.anomalyRequests = source["anomalyRequests"];
+	        this.inflightCount = source["inflightCount"];
+	    }
+	}
+	export class LanguageInfo {
+	    current: string;
+	    available: string[];
+	
+	    static createFrom(source: any = {}) {
+	        return new LanguageInfo(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.current = source["current"];
+	        this.available = source["available"];
+	    }
+	}
 	export class StatusInfo {
 	    mode: string;
 	    proxyAddr: string;
@@ -7,6 +41,11 @@ export namespace main {
 	    caCertPath: string;
 	    verbose: boolean;
 	    toolCount: number;
+	    inflightRequests: number;
+	    totalAPIKeyReqs: number;
+	    verificationRate: number;
+	    avgDeviationPct: number;
+	    watchedFilesCount: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new StatusInfo(source);
@@ -20,6 +59,11 @@ export namespace main {
 	        this.caCertPath = source["caCertPath"];
 	        this.verbose = source["verbose"];
 	        this.toolCount = source["toolCount"];
+	        this.inflightRequests = source["inflightRequests"];
+	        this.totalAPIKeyReqs = source["totalAPIKeyReqs"];
+	        this.verificationRate = source["verificationRate"];
+	        this.avgDeviationPct = source["avgDeviationPct"];
+	        this.watchedFilesCount = source["watchedFilesCount"];
 	    }
 	}
 	export class SummaryStats {
@@ -38,6 +82,34 @@ export namespace main {
 	        this.totalCompletion = source["totalCompletion"];
 	        this.totalCacheHit = source["totalCacheHit"];
 	        this.totalEvents = source["totalEvents"];
+	    }
+	}
+	export class VerificationStats {
+	    totalVerified: number;
+	    passed: number;
+	    anomalies: number;
+	    accuracyRate: number;
+	    avgDeviationPct: number;
+	    withResponseUsage: number;
+	    withLocalOnly: number;
+	    avgLatencyMs: number;
+	    maxLatencyMs: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new VerificationStats(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.totalVerified = source["totalVerified"];
+	        this.passed = source["passed"];
+	        this.anomalies = source["anomalies"];
+	        this.accuracyRate = source["accuracyRate"];
+	        this.avgDeviationPct = source["avgDeviationPct"];
+	        this.withResponseUsage = source["withResponseUsage"];
+	        this.withLocalOnly = source["withLocalOnly"];
+	        this.avgLatencyMs = source["avgLatencyMs"];
+	        this.maxLatencyMs = source["maxLatencyMs"];
 	    }
 	}
 
@@ -67,6 +139,24 @@ export namespace storage {
 	        this.CacheMiss = source["CacheMiss"];
 	        this.CacheCreation = source["CacheCreation"];
 	        this.Total = source["Total"];
+	    }
+	}
+	export class AnomalyStats {
+	    TotalAnomalies: number;
+	    AnomalyRate: number;
+	    ByType: Record<string, number>;
+	    AvgDeviation: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new AnomalyStats(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.TotalAnomalies = source["TotalAnomalies"];
+	        this.AnomalyRate = source["AnomalyRate"];
+	        this.ByType = source["ByType"];
+	        this.AvgDeviation = source["AvgDeviation"];
 	    }
 	}
 	export class TimeSeriesPoint {
@@ -119,6 +209,11 @@ export namespace storage {
 	    CacheCreation: number;
 	    Source: string;
 	    Tokenizer: string;
+	    IsAnomaly: boolean;
+	    AnomalyType: string;
+	    DeviationPct: number;
+	    LatencyMs: number;
+	    Provider: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new TokenEvent(source);
@@ -137,6 +232,52 @@ export namespace storage {
 	        this.CacheCreation = source["CacheCreation"];
 	        this.Source = source["Source"];
 	        this.Tokenizer = source["Tokenizer"];
+	        this.IsAnomaly = source["IsAnomaly"];
+	        this.AnomalyType = source["AnomalyType"];
+	        this.DeviationPct = source["DeviationPct"];
+	        this.LatencyMs = source["LatencyMs"];
+	        this.Provider = source["Provider"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class TrendPoint {
+	    // Go type: time
+	    Timestamp: any;
+	    TotalTokens: number;
+	    PromptTokens: number;
+	    CompletionTokens: number;
+	    EventCount: number;
+	    AnomalyCount: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new TrendPoint(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.Timestamp = this.convertValues(source["Timestamp"], null);
+	        this.TotalTokens = source["TotalTokens"];
+	        this.PromptTokens = source["PromptTokens"];
+	        this.CompletionTokens = source["CompletionTokens"];
+	        this.EventCount = source["EventCount"];
+	        this.AnomalyCount = source["AnomalyCount"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
