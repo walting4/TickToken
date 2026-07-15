@@ -1,0 +1,18 @@
+# Binaries
+ticktoken
+*.exe
+
+# Data
+~/.ticktoken/
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# CA certificates
+ca.crt
+ca.key
+
+# IDE
+.idea/
+.vscode/

@@ -1,19 +1,19 @@
 # 被动式 Token 计数器 Spec
 
 ## Why
-当前 TickToken 作为 API 中继引擎依赖用户配置 API key 才能进行 token 计量。用户希望在不提供 API key 的前提下，覆盖主流 IDE（VS Code、Cursor、JetBrains）、CLI 编程工具（Claude Code、Codex CLI、Aider、Cline 等）和主流 AI 大模型（OpenAI、Anthropic、Google Gemini、DeepSeek 等），同时保证 token 计数精确度、区分缓存命中/未命中，并以可视化图表呈现。为此需要引入"被动观测"机制——通过本地 HTTPS MITM 代理与日志/进程适配器在不持有 API key 的情况下捕获请求/响应 payload，再用各模型原生 tokenizer 进行精确计数。
+当前 TickToken 作为 API 中继引擎依赖用户配置 API key 才能进行 token 计量。用户希望在不提供 API key 的前提下，覆盖任意 IDE（VS Code、Cursor、JetBrains、TRAE、WorkBuddy 等）、CLI 编程工具（Claude Code、Codex CLI、Aider、Cline 等）和任意 AI 大模型（OpenAI、Anthropic、Google Gemini、DeepSeek 等），同时保证 token 计数精确度、区分缓存命中/未命中，并以可视化图表呈现。
+
+核心设计理念：**不内置任何模型和平台列表**，通过本地 HTTPS MITM 代理动态抓取流量，从请求 payload 中自动发现模型名称，从响应中直接提取 token usage（精度 100%），仅在响应不含 usage 时回退到本地 tokenizer 估算。此架构实现对任意平台和模型的零维护自动适配。
 
 ## What Changes
 - 新增本地 HTTPS MITM 代理模块（默认监听 127.0.0.1:8899），通过用户安装的根 CA 证书透明拦截 HTTPS 流量，无需任何 API key
-- 新增多模型 Tokenizer 引擎：OpenAI 系列（tiktoken cl100k_base / o200k_base）、Anthropic Claude（官方 tokenizer）、Google Gemini（gemini-tokenizer）、DeepSeek/Qwen/Llama（基于 HuggingFace tokenizers 兼容映射）
-- 新增 IDE/CLI 适配器层：
-  - 代理类适配器：VS Code（含 GitHub Copilot、Cline）、Cursor、JetBrains（含 AI Assistant）、Windsurf —— 通过设置 HTTP_PROXY/HTTPS_PROXY 指向本地代理生效
-  - 日志类适配器：Claude Code（解析 `~/.claude/` 会话日志）、Codex CLI（解析 `~/.codex/log/`）、Aider（解析 `.aider.chat.history.md` 与运行时输出）
-- 新增缓存命中/未命中解析器：
-  - Anthropic：解析响应中 `usage.cache_creation_input_tokens` 与 `usage.cache_read_input_tokens`
-  - OpenAI：解析 `usage.prompt_tokens_details.cached_tokens`
-  - Gemini：解析 `usageMetadata.cachedContentTokenCount`
-  - DeepSeek：解析 `usage.prompt_cache_hit_tokens` 与 `usage.prompt_cache_miss_tokens`
+- 新增**动态 Token 计数引擎**（替代原硬编码多模型 Tokenizer）：
+  - **优先策略**：从 API 响应中直接提取 usage 字段（通用 JSON 字段探测，非硬编码字段路径），精度 100%
+  - **兜底策略**：响应无 usage 时（如部分 streaming 场景），基于模型名模式匹配选择 tokenizer（gpt-* → o200k_base, claude-* → 官方 tokenizer），仍无匹配 → cl100k_base 兜底，标记 fallback
+- 新增**动态 IDE/CLI 适配器层**（替代原硬编码平台列表）：
+  - 代理类适配器：任意工具通过 HTTP_PROXY/HTTPS_PROXY 接入，基于 User-Agent / 目标域名**动态推断**工具来源（内置常见工具指纹库，支持扩展，未知工具自动标记为 unknown 并记录原始 UA）
+  - 日志类适配器：自动扫描常见日志目录（`~/.claude/`、`~/.codex/log/`、`.aider.chat.history.md` 等），解析会话记录并提取 token 使用信息
+- 新增**动态缓存命中/未命中解析器**：通用 JSON 字段探测，自动识别各 provider 的缓存字段（cache_creation_input_tokens、prompt_tokens_details.cached_tokens、cachedContentTokenCount、prompt_cache_hit_tokens 等），无缓存字段时全部记入 cache_miss
 - 新增可视化仪表盘：基于 Web（内嵌静态资源），提供时间序列折线图、按模型/工具/缓存状态分组的堆叠柱状图、实时面板
 - 新增存储层：本地 SQLite 存储 token 事件（时间戳、工具、模型、prompt/completion/cache 分类 token 数）
 - **BREAKING**：移除"必须配置 API key 才能启动"的硬性约束，改为可选配置（仅当用户希望同时作为中继使用时）
@@ -22,9 +22,9 @@
 - Affected specs: 无（项目首个正式 spec）
 - Affected code:
   - 新增 `proxy/` —— MITM HTTPS 代理实现
-  - 新增 `tokenizers/` —— 各模型 tokenizer 适配
-  - 新增 `adapters/` —— IDE/CLI 适配器
-  - 新增 `cache/` —— 缓存命中解析
+  - 新增 `counter/` —— 动态 token 计数引擎（响应 usage 提取 + 本地 tokenizer 兜底）
+  - 新增 `adapters/` —— 动态 IDE/CLI 适配器（指纹库 + 日志扫描）
+  - 新增 `cache/` —— 动态缓存命中解析（通用 JSON 探测）
   - 新增 `dashboard/` —— Web 可视化
   - 新增 `storage/` —— SQLite 持久化
   - 修改入口 `cmd/` 启动逻辑以支持无 API key 模式
@@ -32,7 +32,7 @@
 ## ADDED Requirements
 
 ### Requirement: 无 API key 流量捕获
-系统 SHALL 在用户未提供任何 API key 的情况下，通过本地 HTTPS MITM 代理捕获 IDE/CLI 与 AI 服务之间的请求与响应 payload，用于后续 token 计数。
+系统 SHALL 在用户未提供任何 API key 的情况下，通过本地 HTTPS MITM 代理捕获任意 IDE/CLI 与 AI 服务之间的请求与响应 payload，用于后续 token 计数。
 
 #### Scenario: 首次启动
 - **WHEN** 用户首次启动计数器且未配置任何 API key
@@ -44,45 +44,49 @@
 - **THEN** 系统使用已安装的根 CA 动态签发目标域名证书完成 TLS 握手
 - **AND** 解密请求体与响应体后转发，不修改 payload 内容
 
-### Requirement: 多模型精确 Tokenizer
-系统 SHALL 使用与目标模型匹配的原生 tokenizer 进行 token 计数，确保与官方计费口径一致（误差 ≤ 0.1%）。
+### Requirement: 动态 Token 计数（响应优先 + 本地兜底）
+系统 SHALL 优先从 API 响应中直接提取 token usage 字段（精度 100%），仅在响应不含 usage 时回退到本地 tokenizer 估算。不内置任何模型或平台列表，模型名称从请求 payload 动态提取。
 
-#### Scenario: OpenAI 模型
-- **WHEN** 请求目标为 `gpt-4o` / `gpt-4o-mini`
-- **THEN** 使用 tiktoken `o200k_base` 编码对 prompt 与 completion 计数
+#### Scenario: 响应含 usage 字段（优先策略）
+- **WHEN** API 响应体包含 token usage 字段（如 `usage.prompt_tokens`、`usage.input_tokens`、`usageMetadata.promptTokenCount` 等）
+- **THEN** 直接使用响应中的 token 计数，精度 100%，无需本地 tokenizer
+- **AND** 标记 `source=response`
 
-#### Scenario: Claude 模型
-- **WHEN** 请求目标为 `claude-3-5-sonnet` / `claude-3-7-sonnet`
-- **THEN** 使用 Anthropic 官方 tokenizer 计数
+#### Scenario: 响应不含 usage（兜底策略）
+- **WHEN** 响应体未包含 token usage 字段（如部分 streaming 场景或非标准 API）
+- **THEN** 从请求体提取 model 名称，基于模型名模式匹配选择 tokenizer
+- **AND** 模型名匹配 `gpt-*` → tiktoken `o200k_base`，匹配 `claude-*` → Anthropic 官方 tokenizer
+- **AND** 无匹配 → tiktoken `cl100k_base` 兜底，标记 `tokenizer=fallback`
+- **AND** 标记 `source=local_tokenizer`
 
-#### Scenario: 未知模型兜底
-- **WHEN** 目标模型不在已知列表
-- **THEN** 使用 tiktoken `cl100k_base` 作为兜底并在日志中标记 `tokenizer=fallback`
+#### Scenario: 任意新模型自动支持
+- **WHEN** 请求使用系统从未见过的模型名称
+- **THEN** 若响应包含 usage 字段则直接提取（零配置支持）
+- **AND** 若响应不含 usage 则兜底到 cl100k_base 估算
 
-### Requirement: IDE/CLI 适配器
-系统 SHALL 同时支持代理类与日志类两类适配器，覆盖主流 IDE 与 CLI 工具。
+### Requirement: 动态 IDE/CLI 适配器
+系统 SHALL 不硬编码任何平台列表，通过动态指纹匹配识别流量来源工具，任意新工具自动支持。
 
-#### Scenario: 代理类适配器
-- **WHEN** 用户为 VS Code / Cursor / JetBrains / Windsurf 设置代理环境变量
-- **THEN** 系统识别流量来源工具并打标签（基于 User-Agent 或目标域名）
+#### Scenario: 代理类适配器（动态指纹）
+- **WHEN** 任意工具通过代理环境变量发起请求
+- **THEN** 系统基于 User-Agent / 目标域名匹配内置指纹库识别工具来源
+- **AND** 内置指纹库覆盖常见工具（VS Code、Cursor、JetBrains、Windsurf、TRAE、WorkBuddy 等）
+- **AND** 未知工具自动标记为 `unknown` 并记录原始 User-Agent，供后续扩展指纹库
 
-#### Scenario: 日志类适配器
-- **WHEN** 用户使用 Claude Code / Codex CLI / Aider 且无法配置代理
-- **THEN** 系统监听对应日志目录变化，解析会话记录并提取 token 使用信息
+#### Scenario: 日志类适配器（自动扫描）
+- **WHEN** 用户使用 Claude Code / Codex CLI / Aider 等无法配置代理的工具
+- **THEN** 系统自动扫描常见日志目录（`~/.claude/`、`~/.codex/log/`、`.aider.chat.history.md` 等）
+- **AND** 解析会话记录并提取 token 使用信息
 
-### Requirement: 缓存命中/未命中区分
-系统 SHALL 解析响应中的缓存相关字段，分别记录缓存命中 token 数与未命中 token 数。
+### Requirement: 动态缓存命中/未命中解析
+系统 SHALL 通过通用 JSON 字段探测自动识别各 provider 的缓存字段，无需硬编码字段路径。
 
-#### Scenario: Anthropic 缓存
-- **WHEN** Claude 响应包含 `cache_creation_input_tokens` 与 `cache_read_input_tokens`
-- **THEN** 分别记入 `cache_creation` 与 `cache_hit` 分类
-
-#### Scenario: OpenAI 缓存
-- **WHEN** 响应 `prompt_tokens_details.cached_tokens` > 0
-- **THEN** 将该数值记入 `cache_hit`，其余 prompt token 记入 `cache_miss`
+#### Scenario: 已知缓存字段
+- **WHEN** 响应包含 `cache_creation_input_tokens`、`cache_read_input_tokens`、`prompt_tokens_details.cached_tokens`、`cachedContentTokenCount`、`prompt_cache_hit_tokens`、`prompt_cache_miss_tokens` 等任一字段
+- **THEN** 自动识别并分别记录缓存命中 token 数与未命中 token 数
 
 #### Scenario: 无缓存字段
-- **WHEN** 响应未包含任何缓存字段
+- **WHEN** 响应未包含任何已知缓存字段
 - **THEN** 全部 prompt token 记入 `cache_miss` 并标记 `cache=unknown`
 
 ### Requirement: 可视化图表
@@ -105,7 +109,7 @@
 
 #### Scenario: 写入
 - **WHEN** 一次请求/响应完成解析
-- **THEN** 写入一条事件记录（时间戳、工具、模型、各分类 token 数）
+- **THEN** 写入一条事件记录（时间戳、工具、模型、各分类 token 数、计数来源）
 
 #### Scenario: 查询
 - **WHEN** 仪表盘请求历史数据
