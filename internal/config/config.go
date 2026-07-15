@@ -54,3 +54,19 @@ func Load() (*Config, error) {
 
 	return cfg, nil
 }
+
+// Default 返回默认配置（用于 Load 失败时的降级）
+// 使用当前工作目录下的临时数据目录，保证应用能启动
+func Default() *Config {
+	dataDir := filepath.Join(os.TempDir(), "ticktoken")
+	_ = os.MkdirAll(dataDir, 0755)
+	return &Config{
+		ProxyAddr:     "127.0.0.1:8899",
+		DashboardAddr: "127.0.0.1:8900",
+		DataDir:       dataDir,
+		DBPath:        filepath.Join(dataDir, "ticktoken.db"),
+		CADir:         filepath.Join(dataDir, "ca"),
+		APIKey:        "",
+		Verbose:       false,
+	}
+}

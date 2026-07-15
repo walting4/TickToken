@@ -23,3 +23,11 @@ ca.key
 # Wails
 /build/windows/icon.ico
 /build/darwin/icon.icns
+
+# Frontend build output (CI 重新生成)
+/frontend/dist/*
+!/frontend/dist/.gitkeep
+
+# Node
+node_modules/
+

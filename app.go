@@ -45,26 +45,29 @@ func NewApp() *App {
 func (a *App) Startup(ctx context.Context) {
 	a.ctx = ctx
 
-	// 加载配置
+	// 加载配置（失败时降级到默认配置，不退出应用，保证窗口可见）
 	cfg, err := config.Load()
 	if err != nil {
-		log.Fatalf("[App] 加载配置失败: %v", err)
+		log.Printf("[App] 加载配置失败（降级到默认配置）: %v", err)
+		cfg = config.Default()
 	}
 	a.cfg = cfg
 
-	// 初始化 CA 证书管理器
+	// 初始化 CA 证书管理器（失败时降级，代理功能不可用但窗口可见）
 	certMgr, err := proxy.NewCertManager(cfg.CADir)
 	if err != nil {
-		log.Fatalf("[App] CA 证书管理器初始化失败: %v", err)
+		log.Printf("[App] CA 证书管理器初始化失败（降级模式）: %v", err)
+	} else {
+		a.certMgr = certMgr
 	}
-	a.certMgr = certMgr
 
-	// 初始化存储
+	// 初始化存储（失败时降级，事件不持久化但窗口可见）
 	store, err := storage.NewStore(cfg.DBPath)
 	if err != nil {
-		log.Fatalf("[App] 存储初始化失败: %v", err)
+		log.Printf("[App] 存储初始化失败（降级模式）: %v", err)
+	} else {
+		a.store = store
 	}
-	a.store = store
 
 	// 初始化计数引擎和指纹库
 	a.counter = counter.NewCounter()
@@ -102,8 +105,12 @@ func (a *App) Startup(ctx context.Context) {
 	}
 
 	a.mitmProxy = proxy.NewMITMProxy(cfg.ProxyAddr, a.certMgr, proxyHandler)
-	if err := a.mitmProxy.Start(); err != nil {
-		log.Fatalf("[App] 代理启动失败: %v", err)
+	if a.certMgr != nil {
+		if err := a.mitmProxy.Start(); err != nil {
+			log.Printf("[App] 代理启动失败（降级模式，监控不可用）: %v", err)
+		}
+	} else {
+		log.Printf("[App] CA 证书不可用，跳过代理启动（降级模式）")
 	}
 
 	log.Printf("[App] TickToken 桌面版已启动，模式: %s（v2 优化版）", cfg.Mode())
@@ -112,6 +119,11 @@ func (a *App) Startup(ctx context.Context) {
 // processCapturedRequest 处理捕获的请求（异步管道）
 // 集成 API Key 监控、双重校验、异常检测
 func (a *App) processCapturedRequest(host string, reqBody []byte, respBody []byte, req *http.Request, resp *http.Response) {
+	// 降级模式保护：store 或其他组件未初始化时跳过
+	if a.store == nil || a.counter == nil || a.verifier == nil {
+		return
+	}
+
 	startTime := time.Now()
 	tool := a.fpDB.IdentifyFromRequest(req)
 	model := counter.ExtractModelFromRequest(reqBody)
@@ -256,30 +268,44 @@ type StatusInfo struct {
 
 // GetStatus 获取应用状态
 func (a *App) GetStatus() StatusInfo {
-	monitorStats := a.apiKeyMonitor.GetStats()
-	verifierStats := a.verifier.GetStats()
-	watchedCount := 0
+	info := StatusInfo{
+		Mode:      "degraded",
+		ProxyAddr: "-",
+		DataDir:   "-",
+	}
+	if a.cfg != nil {
+		info.Mode = a.cfg.Mode()
+		info.ProxyAddr = a.cfg.ProxyAddr
+		info.DataDir = a.cfg.DataDir
+		info.Verbose = a.cfg.Verbose
+	}
+	if a.certMgr != nil {
+		info.CACertPath = a.certMgr.GetCACertPath()
+	}
+	if a.fpDB != nil {
+		info.ToolCount = len(a.fpDB.ListTools())
+	}
+	if a.apiKeyMonitor != nil {
+		monitorStats := a.apiKeyMonitor.GetStats()
+		info.InflightRequests = int64(a.apiKeyMonitor.InflightCount())
+		info.TotalAPIKeyReqs = monitorStats.TotalRequests
+	}
+	if a.verifier != nil {
+		verifierStats := a.verifier.GetStats()
+		info.VerificationRate = verifierStats.AccuracyRate()
+		info.AvgDeviationPct = verifierStats.AverageDeviation()
+	}
 	if a.fileWatcher != nil {
-		watchedCount = len(a.fileWatcher.GetWatchedFiles())
+		info.WatchedFilesCount = len(a.fileWatcher.GetWatchedFiles())
 	}
-
-	return StatusInfo{
-		Mode:              a.cfg.Mode(),
-		ProxyAddr:         a.cfg.ProxyAddr,
-		DataDir:           a.cfg.DataDir,
-		CACertPath:        a.certMgr.GetCACertPath(),
-		Verbose:           a.cfg.Verbose,
-		ToolCount:         len(a.fpDB.ListTools()),
-		InflightRequests:  int64(a.apiKeyMonitor.InflightCount()),
-		TotalAPIKeyReqs:   monitorStats.TotalRequests,
-		VerificationRate:  verifierStats.AccuracyRate(),
-		AvgDeviationPct:   verifierStats.AverageDeviation(),
-		WatchedFilesCount: watchedCount,
-	}
+	return info
 }
 
 // GetTimeSeries 获取时间序列数据
 func (a *App) GetTimeSeries(hours int) []storage.TimeSeriesPoint {
+	if a.store == nil {
+		return []storage.TimeSeriesPoint{}
+	}
 	if hours <= 0 || hours > 720 {
 		hours = 24
 	}
@@ -295,6 +321,9 @@ func (a *App) GetTimeSeries(hours int) []storage.TimeSeriesPoint {
 
 // GetAggregate 获取聚合数据
 func (a *App) GetAggregate(dimension string, hours int) []storage.AggregationItem {
+	if a.store == nil {
+		return []storage.AggregationItem{}
+	}
 	if dimension != "model" && dimension != "tool" {
 		dimension = "model"
 	}
@@ -313,6 +342,9 @@ func (a *App) GetAggregate(dimension string, hours int) []storage.AggregationIte
 
 // GetRecentEvents 获取最近事件
 func (a *App) GetRecentEvents(limit int) []storage.TokenEvent {
+	if a.store == nil {
+		return []storage.TokenEvent{}
+	}
 	if limit <= 0 || limit > 1000 {
 		limit = 50
 	}
@@ -336,6 +368,9 @@ type SummaryStats struct {
 
 // GetSummary 获取指定时间窗口内的汇总统计
 func (a *App) GetSummary(hours int) SummaryStats {
+	if a.store == nil {
+		return SummaryStats{}
+	}
 	if hours <= 0 || hours > 720 {
 		hours = 24
 	}
@@ -368,6 +403,9 @@ func (a *App) GetSummary(hours int) SummaryStats {
 // GetTrend 获取趋势分析数据
 // granularity: "hour" 或 "day"
 func (a *App) GetTrend(hours int, granularity string) []storage.TrendPoint {
+	if a.store == nil {
+		return []storage.TrendPoint{}
+	}
 	if hours <= 0 || hours > 720 {
 		hours = 24
 	}
@@ -386,6 +424,9 @@ func (a *App) GetTrend(hours int, granularity string) []storage.TrendPoint {
 
 // GetAnomalyStats 获取异常统计
 func (a *App) GetAnomalyStats(hours int) *storage.AnomalyStats {
+	if a.store == nil {
+		return &storage.AnomalyStats{ByType: make(map[string]int64)}
+	}
 	if hours <= 0 || hours > 720 {
 		hours = 24
 	}
@@ -401,6 +442,9 @@ func (a *App) GetAnomalyStats(hours int) *storage.AnomalyStats {
 
 // GetAnomalies 获取异常事件列表
 func (a *App) GetAnomalies(limit int) []storage.TokenEvent {
+	if a.store == nil {
+		return []storage.TokenEvent{}
+	}
 	if limit <= 0 || limit > 1000 {
 		limit = 100
 	}
@@ -427,6 +471,9 @@ type VerificationStats struct {
 
 // GetVerificationStats 获取校验统计
 func (a *App) GetVerificationStats() VerificationStats {
+	if a.verifier == nil {
+		return VerificationStats{}
+	}
 	stats := a.verifier.GetStats()
 	avgLat, maxLat, _ := a.verifier.GetLatencyStats()
 	return VerificationStats{
@@ -453,6 +500,9 @@ type APIKeyMonitorStats struct {
 
 // GetAPIKeyMonitorStats 获取 API Key 监控统计
 func (a *App) GetAPIKeyMonitorStats() APIKeyMonitorStats {
+	if a.apiKeyMonitor == nil {
+		return APIKeyMonitorStats{}
+	}
 	stats := a.apiKeyMonitor.GetStats()
 	return APIKeyMonitorStats{
 		TotalRequests:     stats.TotalRequests,
@@ -481,11 +531,17 @@ func (a *App) OpenInFileManager(path string) {
 
 // OpenCACert 在文件管理器中定位 CA 证书
 func (a *App) OpenCACert() {
+	if a.certMgr == nil {
+		return
+	}
 	a.OpenInFileManager(a.certMgr.GetCACertPath())
 }
 
 // OpenDataDir 在文件管理器中打开数据目录
 func (a *App) OpenDataDir() {
+	if a.cfg == nil {
+		return
+	}
 	a.OpenInFileManager(a.cfg.DataDir)
 }
 
