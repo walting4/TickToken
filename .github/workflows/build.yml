@@ -15,7 +15,7 @@ jobs:
           - os: ubuntu-latest
             platform: linux/amd64
             artifact: TickToken
-            package_cmd: make package-linux
+            package_cmd: wails build -platform linux/amd64
             artifact_name: ticktoken-linux-amd64
           - os: macos-latest
             platform: darwin/universal
@@ -45,6 +45,9 @@ jobs:
       - name: Install Wails CLI
         run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.13.0
 
+      - name: Add Wails to PATH
+        run: echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
+
       - name: Install Linux dependencies
         if: runner.os == 'Linux'
         run: |
@@ -52,14 +55,15 @@ jobs:
           sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev pkg-config
           sudo ln -sf /usr/lib/x86_64-linux-gnu/pkgconfig/webkit2gtk-4.1.pc /usr/lib/x86_64-linux-gnu/pkgconfig/webkit2gtk-4.0.pc
 
-      - name: Fix macOS PATH (sysctl)
+      - name: Setup macOS toolchain
         if: runner.os == 'macOS'
-        run: echo "/usr/sbin" >> $GITHUB_PATH
+        run: |
+          sudo xcode-select --reset
+          echo "/Library/Developer/CommandLineTools/usr/bin" >> $GITHUB_PATH
+          echo "/usr/sbin" >> $GITHUB_PATH
 
       - name: Build
         run: ${{ matrix.package_cmd }}
-        env:
-          PATH: ${{ runner.temp }}/go/bin:${{ env.PATH }}
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
