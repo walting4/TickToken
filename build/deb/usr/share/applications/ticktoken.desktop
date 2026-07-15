@@ -1,0 +1,7 @@
+[Desktop Entry]
+Name=TickToken
+Comment=Passive Token Counter
+Exec=/usr/local/bin/ticktoken
+Icon=ticktoken
+Type=Application
+Categories=Utility;

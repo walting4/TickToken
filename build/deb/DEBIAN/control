@@ -1,0 +1,7 @@
+Package: ticktoken
+Version: 1.0.0
+Architecture: amd64
+Maintainer: TickToken
+Description: Passive Token Counter - MITM proxy based token usage tracker
+Section: utils
+Priority: optional

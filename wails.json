@@ -1,0 +1,19 @@
+{
+  "$schema": "https://wails.io/schemas/config.v2.json",
+  "name": "TickToken",
+  "outputfilename": "TickToken",
+  "frontend:install": "",
+  "frontend:build": "",
+  "frontend:dev:watcher": "",
+  "frontend:dev:serverUrl": "",
+  "author": {
+    "name": "TickToken"
+  },
+  "info": {
+    "companyName": "TickToken",
+    "productName": "TickToken",
+    "productVersion": "1.0.0",
+    "copyright": "Copyright © 2025",
+    "comments": "Passive Token Counter"
+  }
+}

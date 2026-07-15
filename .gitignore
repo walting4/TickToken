@@ -13,6 +13,13 @@ ticktoken
 ca.crt
 ca.key
 
+# Build output
+/build/bin/
+
 # IDE
 .idea/
 .vscode/
+
+# Wails
+/build/windows/icon.ico
+/build/darwin/icon.icns
