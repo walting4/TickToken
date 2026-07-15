@@ -31,9 +31,11 @@ type App struct {
 	fpDB      *adapters.FingerprintDB
 	mitmProxy *proxy.MITMProxy
 	// v2 优化新增
-	apiKeyMonitor *apikey.Monitor    // API Key 调用监控
-	verifier      *verifier.Verifier // 双重校验器
+	apiKeyMonitor *apikey.Monitor       // API Key 调用监控
+	verifier      *verifier.Verifier    // 双重校验器
 	fileWatcher   *adapters.FileWatcher // CLI 工具实时监控
+	// v3 优化新增
+	stopCleanup func() // 数据清理停止函数
 }
 
 // NewApp 创建应用实例
@@ -113,7 +115,12 @@ func (a *App) Startup(ctx context.Context) {
 		log.Printf("[App] CA 证书不可用，跳过代理启动（降级模式）")
 	}
 
-	log.Printf("[App] TickToken 桌面版已启动，模式: %s（v2 优化版）", cfg.Mode())
+	// v3: 启动数据自动清理（保留 90 天，每天清理一次）
+	if a.store != nil {
+		a.stopCleanup = a.store.StartAutoCleanup(90)
+	}
+
+	log.Printf("[App] TickToken 桌面版已启动，模式: %s（v3 优化版 - H2/SSE/一键配置）", cfg.Mode())
 }
 
 // processCapturedRequest 处理捕获的请求（异步管道）
@@ -242,6 +249,9 @@ func (a *App) detectProvider(req *http.Request, host string) string {
 
 // Shutdown Wails 关闭回调
 func (a *App) Shutdown(ctx context.Context) {
+	if a.stopCleanup != nil {
+		a.stopCleanup()
+	}
 	if a.fileWatcher != nil {
 		a.fileWatcher.Stop()
 	}

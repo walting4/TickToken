@@ -42,6 +42,9 @@ async function initApp() {
   });
 
   refreshAll();
+
+  // 定时刷新代理状态（每 5 秒）
+  setInterval(refreshProxyStatus, 5000);
 }
 
 // ============ 语言切换 ============
@@ -69,6 +72,7 @@ function refreshAll() {
   refreshVerificationStats();
   refreshAPIKeyMonitor();
   refreshAnomalyList();
+  refreshProxyStatus();
 }
 
 // ============ 汇总 ============
@@ -317,6 +321,78 @@ async function openCACert() {
 async function openDataDir() {
   try { await window.go.main.App.OpenDataDir(); }
   catch (e) { console.error('OpenDataDir failed:', e); }
+}
+
+// ============ 代理配置 ============
+function setProxyIndicator(id, ok, okText, failText) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  if (ok) {
+    el.textContent = '✓ ' + (okText || '');
+    el.classList.add('green');
+    el.classList.remove('red');
+  } else {
+    el.textContent = '✗ ' + (failText || '');
+    el.classList.add('red');
+    el.classList.remove('green');
+  }
+}
+
+async function refreshProxyStatus() {
+  try {
+    const s = await window.go.main.App.GetProxyStatus();
+    if (!s) return;
+
+    setProxyIndicator('psSystemProxy', s.systemProxySet,
+      window.i18n.t('configured'), window.i18n.t('notConfigured'));
+    setProxyIndicator('psCaCert', s.cacertInstalled,
+      window.i18n.t('caCertInstalled'), window.i18n.t('notConfigured'));
+    setProxyIndicator('psTraeProxy', s.traeProxySet,
+      window.i18n.t('configured'), window.i18n.t('notConfigured'));
+    setProxyIndicator('psListening', s.isListening,
+      window.i18n.t('listening'), window.i18n.t('notListening'));
+
+    const ps = s.proxyStats || {};
+    document.getElementById('psTotalRequests').textContent = (ps.totalRequests || 0).toLocaleString();
+    document.getElementById('psCaptured').textContent = (ps.totalCaptured || 0).toLocaleString();
+    document.getElementById('psSseStreams').textContent = (ps.totalSSEStream || 0).toLocaleString();
+    document.getElementById('psErrors').textContent = (ps.totalErrors || 0).toLocaleString();
+  } catch (e) {
+    console.error('GetProxyStatus failed:', e);
+  }
+}
+
+async function setupProxyAndCert() {
+  const resultEl = document.getElementById('proxyResult');
+  try {
+    const res = await window.go.main.App.SetupProxyAndCert();
+    if (res && res.success) {
+      resultEl.textContent = res.message || window.i18n.t('setupSuccess');
+      resultEl.className = 'proxy-result success';
+    } else {
+      resultEl.textContent = res.message || window.i18n.t('setupPartial');
+      resultEl.className = 'proxy-result warn';
+    }
+    refreshProxyStatus();
+  } catch (e) {
+    console.error('SetupProxyAndCert failed:', e);
+    resultEl.textContent = String(e);
+    resultEl.className = 'proxy-result error';
+  }
+}
+
+async function removeProxyAndCert() {
+  const resultEl = document.getElementById('proxyResult');
+  try {
+    await window.go.main.App.RemoveProxyAndCert();
+    resultEl.textContent = window.i18n.t('removeSuccess');
+    resultEl.className = 'proxy-result success';
+    refreshProxyStatus();
+  } catch (e) {
+    console.error('RemoveProxyAndCert failed:', e);
+    resultEl.textContent = String(e);
+    resultEl.className = 'proxy-result error';
+  }
 }
 
 document.getElementById('timeRange').addEventListener('change', refreshAll);

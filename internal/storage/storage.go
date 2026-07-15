@@ -269,6 +269,74 @@ func (s *Store) Close() error {
 	return s.db.Close()
 }
 
+// CleanupOldEvents 清理超过指定天数的旧事件
+// 返回删除的行数
+func (s *Store) CleanupOldEvents(days int) (int64, error) {
+	if days <= 0 {
+		days = 90 // 默认保留 90 天
+	}
+	cutoff := time.Now().AddDate(0, 0, -days)
+	result, err := s.db.Exec(
+		`DELETE FROM token_events WHERE timestamp < ?`, cutoff)
+	if err != nil {
+		return 0, fmt.Errorf("清理旧事件失败: %w", err)
+	}
+	count, _ := result.RowsAffected()
+	if count > 0 {
+		log.Printf("[Storage] 清理了 %d 条超过 %d 天的旧事件", count, days)
+	}
+	return count, nil
+}
+
+// StartAutoCleanup 启动自动清理定时任务（每天执行一次）
+// 返回停止函数
+func (s *Store) StartAutoCleanup(days int) func() {
+	if days <= 0 {
+		days = 90
+	}
+	ticker := time.NewTicker(24 * time.Hour)
+	stop := make(chan struct{})
+
+	go func() {
+		// 启动时先执行一次
+		s.CleanupOldEvents(days)
+
+		for {
+			select {
+			case <-ticker.C:
+				s.CleanupOldEvents(days)
+			case <-stop:
+				ticker.Stop()
+				return
+			}
+		}
+	}()
+
+	return func() { close(stop) }
+}
+
+// GetEventCount 获取事件总数（用于前端显示）
+func (s *Store) GetEventCount() (int64, error) {
+	var count int64
+	err := s.db.QueryRow(`SELECT COUNT(*) FROM token_events`).Scan(&count)
+	return count, err
+}
+
+// GetDBSize 获取数据库文件大小（字节）
+func (s *Store) GetDBSize() int64 {
+	// 通过 PRAGMA 获取页面数 * 页面大小
+	var pageSize, pageCount int64
+	s.db.QueryRow("PRAGMA page_size").Scan(&pageSize)
+	s.db.QueryRow("PRAGMA page_count").Scan(&pageCount)
+	return pageSize * pageCount
+}
+
+// Vacuum 优化数据库（VACUUM 压缩空间）
+func (s *Store) Vacuum() error {
+	_, err := s.db.Exec("VACUUM")
+	return err
+}
+
 // TrendPoint 趋势分析数据点
 type TrendPoint struct {
 	Timestamp        time.Time

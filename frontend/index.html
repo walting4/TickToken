@@ -25,6 +25,50 @@
 </div>
 
 <div class="container">
+  <!-- 代理配置面板 -->
+  <div class="section proxy-panel">
+    <h2 data-i18n="proxyConfig">代理配置</h2>
+    <div class="mini-cards">
+      <div class="mini-card">
+        <div class="mini-label" data-i18n="systemProxy">系统代理</div>
+        <div class="mini-value" id="psSystemProxy">✗</div>
+      </div>
+      <div class="mini-card">
+        <div class="mini-label" data-i18n="caCert">CA 证书</div>
+        <div class="mini-value" id="psCaCert">✗</div>
+      </div>
+      <div class="mini-card">
+        <div class="mini-label" data-i18n="traeProxy">trae 代理</div>
+        <div class="mini-value" id="psTraeProxy">✗</div>
+      </div>
+      <div class="mini-card">
+        <div class="mini-label" data-i18n="proxyListening">代理监听</div>
+        <div class="mini-value" id="psListening">✗</div>
+      </div>
+      <div class="mini-card">
+        <div class="mini-label" data-i18n="totalRequests">请求总数</div>
+        <div class="mini-value blue" id="psTotalRequests">0</div>
+      </div>
+      <div class="mini-card">
+        <div class="mini-label" data-i18n="captured">已捕获</div>
+        <div class="mini-value green" id="psCaptured">0</div>
+      </div>
+      <div class="mini-card">
+        <div class="mini-label" data-i18n="sseStreams">SSE 流</div>
+        <div class="mini-value purple" id="psSseStreams">0</div>
+      </div>
+      <div class="mini-card">
+        <div class="mini-label" data-i18n="proxyErrors">代理错误</div>
+        <div class="mini-value red" id="psErrors">0</div>
+      </div>
+    </div>
+    <div class="controls">
+      <button class="ctrl-btn" onclick="setupProxyAndCert()" data-i18n="oneClickSetup">一键配置</button>
+      <button class="ctrl-btn" onclick="removeProxyAndCert()" data-i18n="removeProxy">移除代理</button>
+    </div>
+    <div class="proxy-result" id="proxyResult"></div>
+  </div>
+
   <!-- 汇总卡片 -->
   <div class="summary">
     <div class="card">

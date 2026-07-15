@@ -112,6 +112,52 @@ export namespace main {
 	        this.maxLatencyMs = source["maxLatencyMs"];
 	    }
 	}
+	export class ProxyStatus {
+	    proxyAddr: string;
+	    isListening: boolean;
+	    systemProxySet: boolean;
+	    cacertInstalled: boolean;
+	    traeProxySet: boolean;
+	    cacertPath: string;
+	    traeConfigPath: string;
+	    platform: string;
+	    proxyStats: { totalRequests: number; totalCaptured: number; totalErrors: number; totalSSEStream: number; };
+
+	    static createFrom(source: any = {}) {
+	        return new ProxyStatus(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.proxyAddr = source["proxyAddr"];
+	        this.isListening = source["isListening"];
+	        this.systemProxySet = source["systemProxySet"];
+	        this.cacertInstalled = source["cacertInstalled"];
+	        this.traeProxySet = source["traeProxySet"];
+	        this.cacertPath = source["cacertPath"];
+	        this.traeConfigPath = source["traeConfigPath"];
+	        this.platform = source["platform"];
+	        this.proxyStats = source["proxyStats"];
+	    }
+	}
+	export class SetupResult {
+	    success: boolean;
+	    message: string;
+	    steps: string[];
+	    warnings: string[];
+
+	    static createFrom(source: any = {}) {
+	        return new SetupResult(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.success = source["success"];
+	        this.message = source["message"];
+	        this.steps = source["steps"];
+	        this.warnings = source["warnings"];
+	    }
+	}
 
 }
 
