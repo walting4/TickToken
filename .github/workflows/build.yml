@@ -58,8 +58,8 @@ jobs:
       - name: Setup macOS toolchain
         if: runner.os == 'macOS'
         run: |
-          sudo xcode-select --reset
-          echo "/Library/Developer/CommandLineTools/usr/bin" >> $GITHUB_PATH
+          sudo xcode-select --switch /Applications/Xcode.app/Contents/Developer
+          echo "SDKROOT=$(xcrun --show-sdk-path)" >> $GITHUB_ENV
           echo "/usr/sbin" >> $GITHUB_PATH
 
       - name: Build
