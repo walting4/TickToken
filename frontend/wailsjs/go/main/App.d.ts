@@ -29,6 +29,8 @@ export function GetVerificationStats():Promise<main.VerificationStats>;
 
 export function DiagnoseProxy():Promise<main.DiagnosticsResult>;
 
+export function ExportCSV(arg1:number):Promise<string>;
+
 export function OpenCACert():Promise<void>;
 
 export function OpenDataDir():Promise<void>;

@@ -435,3 +435,19 @@ function renderDiagnosticReport(result) {
 }
 
 document.getElementById('timeRange').addEventListener('change', refreshAll);
+
+// ============ CSV 导出 ============
+async function exportCSV() {
+  const hours = parseInt(document.getElementById('timeRange').value) || 24;
+  try {
+    const path = await window.go.main.App.ExportCSV(hours);
+    if (path) {
+      alert(window.i18n.t('exportSuccess') + ': ' + path);
+    } else {
+      alert(window.i18n.t('exportEmpty'));
+    }
+  } catch (e) {
+    console.error('ExportCSV failed:', e);
+    alert(window.i18n.t('exportFailed') + ': ' + String(e));
+  }
+}

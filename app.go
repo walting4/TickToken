@@ -7,7 +7,9 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"time"
 
@@ -711,4 +713,73 @@ func (a *App) DiagnoseProxy() DiagnosticsResult {
 	}
 
 	return result
+}
+
+// ExportCSV 导出 token 事件数据为 CSV 文件
+// hours: 导出最近多少小时的数据，0 表示全部
+// 返回保存的文件路径
+func (a *App) ExportCSV(hours int) (string, error) {
+	if a.store == nil {
+		return "", fmt.Errorf("存储未初始化")
+	}
+	if a.cfg == nil {
+		return "", fmt.Errorf("配置未初始化")
+	}
+
+	var events []storage.TokenEvent
+	var err error
+	if hours > 0 {
+		end := time.Now()
+		start := end.Add(-time.Duration(hours) * time.Hour)
+		events, err = a.store.Query(storage.QueryFilter{StartTime: &start, EndTime: &end})
+	} else {
+		events, err = a.store.Query(storage.QueryFilter{})
+	}
+	if err != nil {
+		return "", fmt.Errorf("查询事件失败: %w", err)
+	}
+
+	// 生成 CSV 文件
+	csvPath := filepath.Join(a.cfg.DataDir, fmt.Sprintf("ticktoken-export-%s.csv", time.Now().Format("20060102-150405")))
+	f, err := os.Create(csvPath)
+	if err != nil {
+		return "", fmt.Errorf("创建文件失败: %w", err)
+	}
+	defer f.Close()
+
+	// UTF-8 BOM 让 Excel 正确识别编码
+	f.Write([]byte{0xEF, 0xBB, 0xBF})
+
+	// CSV 表头
+	header := "时间,工具,模型,Prompt Tokens,Completion Tokens,缓存命中,缓存未命中,缓存创建,来源,分词器,是否异常,异常类型,偏差百分比,延迟(ms),Provider\n"
+	f.WriteString(header)
+
+	// CSV 数据行
+	for _, e := range events {
+		anomalyStr := "否"
+		if e.IsAnomaly {
+			anomalyStr = "是"
+		}
+		row := fmt.Sprintf("%s,%s,%s,%d,%d,%d,%d,%d,%s,%s,%s,%s,%.2f,%d,%s\n",
+			e.Timestamp.Format("2006-01-02 15:04:05"),
+			e.Tool,
+			e.Model,
+			e.PromptTokens,
+			e.CompletionTokens,
+			e.CacheHit,
+			e.CacheMiss,
+			e.CacheCreation,
+			e.Source,
+			e.Tokenizer,
+			anomalyStr,
+			e.AnomalyType,
+			e.DeviationPct,
+			e.LatencyMs,
+			e.Provider,
+		)
+		f.WriteString(row)
+	}
+
+	log.Printf("[App] CSV 导出完成: %s (%d 条记录)", csvPath, len(events))
+	return csvPath, nil
 }

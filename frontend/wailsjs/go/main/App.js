@@ -54,6 +54,10 @@ export function DiagnoseProxy() {
   return window['go']['main']['App']['DiagnoseProxy']();
 }
 
+export function ExportCSV(arg1) {
+  return window['go']['main']['App']['ExportCSV'](arg1);
+}
+
 export function OpenCACert() {
   return window['go']['main']['App']['OpenCACert']();
 }

@@ -68,6 +68,12 @@ const translations = {
     diag_trae_proxy: 'trae 代理配置',
     diag_proxy_request_test: '代理请求测试',
 
+    // CSV export
+    exportCSV: '导出 CSV',
+    exportSuccess: '导出成功',
+    exportEmpty: '没有数据可导出',
+    exportFailed: '导出失败',
+
     // Time series
     timeSeries: '时间序列',
     timeRange: '时间范围',
@@ -186,6 +192,12 @@ const translations = {
     diag_ca_cert: 'CA Certificate',
     diag_trae_proxy: 'Trae Proxy Config',
     diag_proxy_request_test: 'Proxy Request Test',
+
+    // CSV export
+    exportCSV: 'Export CSV',
+    exportSuccess: 'Export successful',
+    exportEmpty: 'No data to export',
+    exportFailed: 'Export failed',
 
     // Time series
     timeSeries: 'Time Series',
