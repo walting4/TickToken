@@ -1,0 +1,29 @@
+# Checklist
+
+- [ ] 项目骨架与模块目录（proxy/ tokenizers/ adapters/ cache/ dashboard/ storage/ cmd/）已建立
+- [ ] 配置入口支持"无 API key 被动观测模式"启动（强制 API key 校验已移除）
+- [ ] 自签名根 CA 证书生成与首次启动引导提示已实现
+- [ ] HTTPS MITM 代理监听 127.0.0.1:8899，可透明拦截并透传 payload
+- [ ] tiktoken cl100k_base 与 o200k_base 已集成并可按模型路由
+- [ ] Anthropic 官方 tokenizer 已集成，支持 claude-3-5/3-7 系列
+- [ ] Gemini tokenizer 已集成，支持 gemini-1.5/2.0 系列
+- [ ] DeepSeek/Qwen/Llama 的 HuggingFace tokenizers 映射已实现
+- [ ] 未知模型可兜底到 cl100k_base 并标记 tokenizer=fallback
+- [ ] 代理类适配器能基于 User-Agent / 目标域名识别 VS Code / Cursor / Windsurf / JetBrains
+- [ ] Claude Code 日志适配器可解析 ~/.claude/ 会话日志
+- [ ] Codex CLI 日志适配器可解析 ~/.codex/log/
+- [ ] Aider 日志适配器可解析 .aider.chat.history.md 与运行时输出
+- [ ] Anthropic 缓存字段（cache_creation_input_tokens / cache_read_input_tokens）解析正确
+- [ ] OpenAI 缓存字段（prompt_tokens_details.cached_tokens）解析正确
+- [ ] Gemini 缓存字段（usageMetadata.cachedContentTokenCount）解析正确
+- [ ] DeepSeek 缓存字段（prompt_cache_hit_tokens / prompt_cache_miss_tokens）解析正确
+- [ ] 无缓存字段时全部 prompt token 记入 cache_miss 并标记 cache=unknown
+- [ ] SQLite token_events 表结构包含时间戳、工具、模型、各分类 token 数
+- [ ] 事件写入与按时间/工具/模型过滤查询接口可用
+- [ ] Web 仪表盘提供时间序列折线图（默认 24 小时窗口，可切换）
+- [ ] Web 仪表盘提供按模型/工具/缓存状态维度的堆叠柱状图
+- [ ] WebSocket 实时推送在 2 秒内同步新事件
+- [ ] 端到端集成测试（代理 + tokenizer + 缓存解析）通过
+- [ ] 日志适配器解析单元测试通过
+- [ ] 仪表盘展示数据与 SQLite 存储数据一致
+- [ ] 用户使用文档（CA 安装、代理配置、各工具接入步骤）已编写
