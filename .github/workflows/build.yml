@@ -14,17 +14,14 @@ jobs:
         include:
           - os: ubuntu-latest
             platform: linux/amd64
-            artifact: TickToken
             package_cmd: wails build -platform linux/amd64
             artifact_name: ticktoken-linux-amd64
           - os: macos-latest
             platform: darwin/universal
-            artifact: TickToken.app
             package_cmd: wails build -platform darwin/universal
             artifact_name: ticktoken-macos
           - os: windows-latest
             platform: windows/amd64
-            artifact: TickToken-amd64-installer.exe
             package_cmd: wails build -platform windows/amd64 -nsis
             artifact_name: ticktoken-windows-amd64
 
@@ -65,6 +62,20 @@ jobs:
       - name: Build
         run: ${{ matrix.package_cmd }}
 
+      - name: Package macOS app
+        if: runner.os == 'macOS'
+        run: |
+          cd build/bin
+          ditto -c -k --keepParent TickToken.app TickToken-macOS-universal.zip
+          rm -rf TickToken.app
+
+      - name: Package Linux binary
+        if: runner.os == 'Linux'
+        run: |
+          cd build/bin
+          tar czf TickToken-linux-amd64.tar.gz TickToken
+          rm TickToken
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
@@ -83,8 +94,30 @@ jobs:
         with:
           path: artifacts
 
+      - name: Display structure
+        run: find artifacts -type f
+
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          generate_release_notes: true
-          files: artifacts/**/*
+          tag_name: ${{ github.ref_name }}
+          name: TickToken ${{ github.ref_name }}
+          generate_release_notes: false
+          body: |
+            ## TickToken ${{ github.ref_name }}
+
+            被动式 Token 计数器 - 基于 MITM 代理的 Token 用量追踪工具。
+
+            ### 下载安装
+            - **Linux**: 下载 `TickToken-linux-amd64.tar.gz`，解压后运行 `./TickToken`
+            - **macOS**: 下载 `TickToken-macOS-universal.zip`，解压后拖入 Applications
+            - **Windows**: 下载 `TickToken-amd64-installer.exe`，双击安装
+
+            ### 系统要求
+            - Linux: libwebkit2gtk-4.1, libgtk-3
+            - macOS: macOS 11+
+            - Windows: Windows 10+
+          files: |
+            artifacts/ticktoken-linux-amd64/*
+            artifacts/ticktoken-macos/*
+            artifacts/ticktoken-windows-amd64/*
