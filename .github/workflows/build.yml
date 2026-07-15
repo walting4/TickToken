@@ -89,14 +89,10 @@ jobs:
 
       - name: List build output (debug)
         if: always()
-        shell: powershell
+        shell: bash
         run: |
-          Write-Host "=== Build output directory ==="
-          if (Test-Path build/bin) {
-            Get-ChildItem build/bin -Force | Format-Table Name, Length, LastWriteTime
-          } else {
-            Write-Host "build/bin not found"
-          }
+          echo "=== Build output directory ==="
+          ls -la build/bin/ 2>/dev/null || echo "build/bin not found"
 
       - name: Package macOS app
         if: runner.os == 'macOS'
